@@ -2,10 +2,10 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useStore } from '@/lib/store'
-import type { AllowanceType, Allowance } from '@/lib/types'
-
-const TODAY = '2026-04-18'
+import { useAuth } from '@/lib/auth-context'
+import { supabase } from '@/lib/supabase'
+import { todayMY } from '@/lib/date-utils'
+import type { AllowanceType } from '@/lib/types'
 
 const TYPES: { value: AllowanceType; label: string; icon: string }[] = [
   { value: 'petrol', label: 'Petrol', icon: '⛽' },
@@ -15,28 +15,36 @@ const TYPES: { value: AllowanceType; label: string; icon: string }[] = [
 ]
 
 export default function AllowanceNew() {
-  const { state, dispatch } = useStore()
+  const { employee } = useAuth()
   const router = useRouter()
   const [type, setType] = useState<AllowanceType>('petrol')
   const [amount, setAmount] = useState('')
   const [description, setDescription] = useState('')
+  const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [error, setError] = useState('')
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const allowance: Allowance = {
-      id: `al${Date.now()}`,
-      employeeId: state.currentUserId!,
-      date: TODAY,
+    if (!employee) return
+    setSubmitting(true)
+    setError('')
+
+    const { error: err } = await supabase.from('allowances').insert({
+      employee_id: employee.id,
+      date: todayMY(),
       type,
       amount: parseFloat(amount),
       description,
       status: 'pending',
-      reviewedBy: null,
-      reviewedAt: null,
-      createdAt: new Date().toISOString(),
+    })
+
+    if (err) {
+      setError('Failed to submit. Please try again.')
+      setSubmitting(false)
+      return
     }
-    dispatch({ type: 'ADD_ALLOWANCE', allowance })
+
     setSubmitted(true)
     setTimeout(() => router.push('/driver'), 1500)
   }
@@ -96,11 +104,14 @@ export default function AllowanceNew() {
           />
         </div>
 
+        {error && <p className="text-red-500 text-sm">{error}</p>}
+
         <button
           type="submit"
-          className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl text-base hover:bg-blue-700 transition"
+          disabled={submitting}
+          className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl text-base hover:bg-blue-700 transition disabled:opacity-50"
         >
-          Submit for Approval
+          {submitting ? 'Submitting…' : 'Submit for Approval'}
         </button>
       </form>
     </div>

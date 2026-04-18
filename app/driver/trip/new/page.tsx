@@ -2,35 +2,44 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useStore } from '@/lib/store'
-import type { Trip } from '@/lib/types'
-
-const TODAY = '2026-04-18'
+import { useAuth } from '@/lib/auth-context'
+import { supabase } from '@/lib/supabase'
+import { todayMY } from '@/lib/date-utils'
 
 export default function TripNew() {
-  const { state, dispatch } = useStore()
+  const { employee } = useAuth()
   const router = useRouter()
-  const [date, setDate] = useState(TODAY)
+  const [date, setDate] = useState(todayMY())
   const [tripCount, setTripCount] = useState(1)
   const [destination, setDestination] = useState('')
+  const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [error, setError] = useState('')
 
-  const employee = state.employees.find(e => e.id === state.currentUserId)!
-
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const trip: Trip = {
-      id: `t${Date.now()}`,
-      employeeId: state.currentUserId!,
+    if (!employee) return
+    setSubmitting(true)
+    setError('')
+
+    const now = new Date().toISOString()
+    const { error: err } = await supabase.from('trips').insert({
+      employee_id: employee.id,
       date,
-      tripCount,
+      trip_count: tripCount,
       destination,
       notes: '',
-      submittedBy: 'driver',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      submitted_by: 'driver',
+      created_at: now,
+      updated_at: now,
+    })
+
+    if (err) {
+      setError('Failed to save trip. Please try again.')
+      setSubmitting(false)
+      return
     }
-    dispatch({ type: 'ADD_TRIP', trip })
+
     setSubmitted(true)
     setTimeout(() => router.push('/driver'), 1500)
   }
@@ -87,15 +96,18 @@ export default function TripNew() {
             >+</button>
           </div>
           <p className="text-center text-sm text-slate-400 mt-2">
-            = RM {(tripCount * employee.tripRate).toFixed(2)} earnings
+            = RM {(tripCount * (employee?.tripRate ?? 0)).toFixed(2)} earnings
           </p>
         </div>
 
+        {error && <p className="text-red-500 text-sm">{error}</p>}
+
         <button
           type="submit"
-          className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl text-base hover:bg-blue-700 transition"
+          disabled={submitting}
+          className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl text-base hover:bg-blue-700 transition disabled:opacity-50"
         >
-          Save Trip
+          {submitting ? 'Saving…' : 'Save Trip'}
         </button>
       </form>
     </div>

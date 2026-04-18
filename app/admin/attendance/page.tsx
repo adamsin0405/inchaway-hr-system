@@ -1,30 +1,61 @@
 'use client'
 
-import { useState } from 'react'
-import { useStore } from '@/lib/store'
+import { useEffect, useState } from 'react'
+import { supabase, mapEmployee, mapAttendance } from '@/lib/supabase'
+import { todayMY } from '@/lib/date-utils'
 import { formatTime, calcOtHours } from '@/lib/payroll'
-import type { Attendance } from '@/lib/types'
-
-const TODAY = '2026-04-18'
+import type { Employee, Attendance } from '@/lib/types'
 
 export default function AttendancePage() {
-  const { state, dispatch } = useStore()
-  const drivers = state.employees.filter(e => e.role === 'driver')
+  const [drivers, setDrivers] = useState<Employee[]>([])
+  const [attMap, setAttMap] = useState<Record<string, Attendance>>({})
+  const [loading, setLoading] = useState(true)
   const [fixingId, setFixingId] = useState<string | null>(null)
   const [fixTime, setFixTime] = useState('')
+  const [saving, setSaving] = useState(false)
 
-  function getAtt(employeeId: string): Attendance | undefined {
-    return state.attendance.find(a => a.employeeId === employeeId && a.date === TODAY)
+  const TODAY = todayMY()
+
+  async function load() {
+    const [empRes, attRes] = await Promise.all([
+      supabase.from('employees').select('*').eq('role', 'driver').eq('is_active', true).order('name'),
+      supabase.from('attendance').select('*').eq('date', TODAY),
+    ])
+    const driverList = (empRes.data ?? []).map(mapEmployee)
+    const map: Record<string, Attendance> = {}
+    for (const row of attRes.data ?? []) {
+      const a = mapAttendance(row)
+      map[a.employeeId] = a
+    }
+    setDrivers(driverList)
+    setAttMap(map)
+    setLoading(false)
   }
 
-  function handleFix(attendanceId: string) {
+  useEffect(() => { load() }, [TODAY])
+
+  async function handleFix(att: Attendance) {
     if (!fixTime) return
-    dispatch({ type: 'FIX_CLOCK_OUT', attendanceId, clockOutAt: `${TODAY}T${fixTime}:00` })
+    setSaving(true)
+    // Interpret entered time as Malaysia time (UTC+8)
+    const clockOutAt = `${TODAY}T${fixTime}:00+08:00`
+    const { data } = await supabase
+      .from('attendance')
+      .update({ clock_out_at: clockOutAt })
+      .eq('id', att.id)
+      .select()
+      .single()
+    if (data) {
+      setAttMap(prev => ({ ...prev, [att.employeeId]: mapAttendance(data) }))
+    }
     setFixingId(null)
     setFixTime('')
+    setSaving(false)
   }
 
-  const clockedIn = drivers.filter(d => getAtt(d.id)?.clockInAt).length
+  if (loading) return <div className="p-6 text-slate-400">Loading…</div>
+
+  const clockedIn = drivers.filter(d => attMap[d.id]?.clockInAt).length
 
   return (
     <div className="p-6">
@@ -53,7 +84,7 @@ export default function AttendancePage() {
           </thead>
           <tbody className="divide-y divide-slate-50">
             {drivers.map(driver => {
-              const att = getAtt(driver.id)
+              const att = attMap[driver.id]
               const ot = att ? calcOtHours(att, driver.standardHours) : 0
               return (
                 <tr key={driver.id} className="hover:bg-slate-50">
@@ -81,8 +112,9 @@ export default function AttendancePage() {
                             className="border rounded px-1 py-0.5 text-xs"
                           />
                           <button
-                            onClick={() => handleFix(att.id)}
-                            className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded"
+                            onClick={() => handleFix(att)}
+                            disabled={saving}
+                            className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded disabled:opacity-50"
                           >OK</button>
                           <button
                             onClick={() => setFixingId(null)}
@@ -102,9 +134,7 @@ export default function AttendancePage() {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    {ot > 0 ? (
-                      <span className="text-orange-600 font-medium">{ot.toFixed(1)}h</span>
-                    ) : '—'}
+                    {ot > 0 ? <span className="text-orange-600 font-medium">{ot.toFixed(1)}h</span> : '—'}
                   </td>
                   <td className="px-4 py-3">
                     {att?.clockInLat ? (

@@ -1,32 +1,56 @@
 'use client'
 
-import { useStore } from '@/lib/store'
+import { useEffect, useState } from 'react'
+import { useAuth } from '@/lib/auth-context'
+import { supabase, mapAttendance, mapTrip, mapAllowance } from '@/lib/supabase'
+import { currentMonthMY, monthLabel } from '@/lib/date-utils'
 import { calcGrossPay, formatRM } from '@/lib/payroll'
-import type { AllowanceStatus } from '@/lib/types'
-
-const MONTH = '2026-04'
+import type { Attendance, Trip, Allowance, AllowanceStatus } from '@/lib/types'
 
 export default function Payslip() {
-  const { state } = useStore()
-  const employee = state.employees.find(e => e.id === state.currentUserId)!
+  const { employee } = useAuth()
+  const [attendance, setAttendance] = useState<Attendance[]>([])
+  const [trips, setTrips] = useState<Trip[]>([])
+  const [allowances, setAllowances] = useState<Allowance[]>([])
+  const [finalized, setFinalized] = useState(false)
+  const [loading, setLoading] = useState(true)
 
-  const { baseSalary, tripEarnings, otAmount, allowancesTotal, grossPay, totalOtHours } = calcGrossPay(
-    employee, MONTH, state.attendance, state.trips, state.allowances,
-  )
+  const MONTH = currentMonthMY()
 
-  const monthTrips = state.trips
-    .filter(t => t.employeeId === employee.id && t.date.startsWith(MONTH))
-    .reduce((s, t) => s + t.tripCount, 0)
+  useEffect(() => {
+    if (!employee) return
+    async function load() {
+      const [attRes, tripRes, allowRes, payRes] = await Promise.all([
+        supabase.from('attendance').select('*').eq('employee_id', employee!.id).gte('date', `${MONTH}-01`),
+        supabase.from('trips').select('*').eq('employee_id', employee!.id).gte('date', `${MONTH}-01`),
+        supabase.from('allowances').select('*').eq('employee_id', employee!.id).gte('date', `${MONTH}-01`),
+        supabase.from('payroll_records').select('status').eq('employee_id', employee!.id).eq('month', MONTH).maybeSingle(),
+      ])
+      setAttendance((attRes.data ?? []).map(mapAttendance))
+      setTrips((tripRes.data ?? []).map(mapTrip))
+      setAllowances((allowRes.data ?? []).map(mapAllowance))
+      setFinalized(payRes.data?.status === 'finalized')
+      setLoading(false)
+    }
+    load()
+  }, [employee, MONTH])
 
-  const myAllowances = state.allowances
-    .filter(a => a.employeeId === employee.id && a.date.startsWith(MONTH))
-    .sort((a, b) => b.date.localeCompare(a.date))
+  if (loading) return <div className="flex items-center justify-center h-48 text-slate-400 text-sm">Loading…</div>
+  if (!employee) return null
+
+  const { baseSalary, tripEarnings, otAmount, allowancesTotal, grossPay, totalOtHours } =
+    calcGrossPay(employee, MONTH, attendance, trips, allowances)
+
+  const monthTrips = trips.reduce((s, t) => s + t.tripCount, 0)
+  const myAllowances = [...allowances].sort((a, b) => b.date.localeCompare(a.date))
 
   return (
     <div className="p-4 space-y-4">
       <div className="text-center">
-        <p className="text-sm text-slate-500">Payslip — April 2026</p>
-        <p className="text-xs text-orange-400 mt-1">Draft (not finalised yet)</p>
+        <p className="text-sm text-slate-500">Payslip — {monthLabel(MONTH)}</p>
+        <p className={`text-xs mt-1 ${finalized ? 'text-green-600 font-medium' : 'text-orange-400'}`}>
+          {finalized ? '✓ Finalised' : 'Draft (not finalised yet)'}
+        </p>
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm overflow-hidden">

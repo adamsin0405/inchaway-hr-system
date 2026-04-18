@@ -1,41 +1,65 @@
 'use client'
 
-import { useState } from 'react'
-import { useStore } from '@/lib/store'
-
-const MONTH = '2026-04'
+import { useEffect, useState } from 'react'
+import { supabase, mapEmployee, mapTrip } from '@/lib/supabase'
+import { currentMonthMY, monthLabel } from '@/lib/date-utils'
+import type { Employee, Trip } from '@/lib/types'
 
 export default function TripsPage() {
-  const { state, dispatch } = useStore()
+  const [drivers, setDrivers] = useState<Employee[]>([])
+  const [trips, setTrips] = useState<Trip[]>([])
+  const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editCount, setEditCount] = useState(0)
   const [editDest, setEditDest] = useState('')
   const [driverFilter, setDriverFilter] = useState('all')
+  const [saving, setSaving] = useState(false)
 
-  const drivers = state.employees.filter(e => e.role === 'driver')
-  let trips = state.trips
-    .filter(t => t.date.startsWith(MONTH))
-    .sort((a, b) => b.date.localeCompare(a.date))
-  if (driverFilter !== 'all') trips = trips.filter(t => t.employeeId === driverFilter)
+  const MONTH = currentMonthMY()
 
-  const totalTrips = trips.reduce((s, t) => s + t.tripCount, 0)
+  useEffect(() => {
+    async function load() {
+      const [empRes, tripRes] = await Promise.all([
+        supabase.from('employees').select('*').eq('role', 'driver').order('name'),
+        supabase.from('trips').select('*').gte('date', `${MONTH}-01`).order('date', { ascending: false }),
+      ])
+      setDrivers((empRes.data ?? []).map(mapEmployee))
+      setTrips((tripRes.data ?? []).map(mapTrip))
+      setLoading(false)
+    }
+    load()
+  }, [MONTH])
 
-  function startEdit(id: string, count: number, dest: string) {
-    setEditingId(id); setEditCount(count); setEditDest(dest)
-  }
-
-  function saveEdit() {
+  async function saveEdit(trip: Trip) {
     if (!editingId) return
-    dispatch({ type: 'UPDATE_TRIP', tripId: editingId, tripCount: editCount, destination: editDest })
+    setSaving(true)
+    const now = new Date().toISOString()
+    const { data } = await supabase
+      .from('trips')
+      .update({ trip_count: editCount, destination: editDest, submitted_by: 'admin', updated_at: now })
+      .eq('id', editingId)
+      .select()
+      .single()
+    if (data) {
+      setTrips(prev => prev.map(t => t.id === trip.id ? mapTrip(data) : t))
+    }
     setEditingId(null)
+    setSaving(false)
   }
+
+  let filtered = trips
+  if (driverFilter !== 'all') filtered = filtered.filter(t => t.employeeId === driverFilter)
+  const totalTrips = filtered.reduce((s, t) => s + t.tripCount, 0)
+  const driverMap = Object.fromEntries(drivers.map(d => [d.id, d]))
+
+  if (loading) return <div className="p-6 text-slate-400">Loading…</div>
 
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Trips</h1>
-          <p className="text-sm text-slate-500">April 2026 — {totalTrips} total trips</p>
+          <p className="text-sm text-slate-500">{monthLabel(MONTH)} — {totalTrips} total trips</p>
         </div>
         <select
           value={driverFilter}
@@ -60,8 +84,8 @@ export default function TripsPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {trips.map(trip => {
-              const driver = state.employees.find(e => e.id === trip.employeeId)
+            {filtered.map(trip => {
+              const driver = driverMap[trip.employeeId]
               const editing = editingId === trip.id
               return (
                 <tr key={trip.id} className="hover:bg-slate-50">
@@ -95,12 +119,16 @@ export default function TripsPage() {
                   <td className="px-4 py-3">
                     {editing ? (
                       <div className="flex gap-2">
-                        <button onClick={saveEdit} className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700">Save</button>
+                        <button
+                          onClick={() => saveEdit(trip)}
+                          disabled={saving}
+                          className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 disabled:opacity-50"
+                        >Save</button>
                         <button onClick={() => setEditingId(null)} className="text-xs text-slate-400 hover:text-slate-600">Cancel</button>
                       </div>
                     ) : (
                       <button
-                        onClick={() => startEdit(trip.id, trip.tripCount, trip.destination)}
+                        onClick={() => { setEditingId(trip.id); setEditCount(trip.tripCount); setEditDest(trip.destination) }}
                         className="text-xs text-blue-500 hover:underline"
                       >Edit</button>
                     )}

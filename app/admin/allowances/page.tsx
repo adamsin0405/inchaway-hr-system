@@ -1,31 +1,58 @@
 'use client'
 
-import { useState } from 'react'
-import { useStore } from '@/lib/store'
-import type { AllowanceStatus } from '@/lib/types'
-
-const MONTH = '2026-04'
+import { useEffect, useState } from 'react'
+import { supabase, mapEmployee, mapAllowance } from '@/lib/supabase'
+import { currentMonthMY, monthLabel } from '@/lib/date-utils'
+import type { Employee, Allowance, AllowanceStatus } from '@/lib/types'
+import { useAuth } from '@/lib/auth-context'
 
 export default function AllowancesPage() {
-  const { state, dispatch } = useStore()
+  const { employee: admin } = useAuth()
+  const [drivers, setDrivers] = useState<Employee[]>([])
+  const [allowances, setAllowances] = useState<Allowance[]>([])
+  const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<AllowanceStatus | 'all'>('pending')
   const [driverFilter, setDriverFilter] = useState('all')
 
-  const drivers = state.employees.filter(e => e.role === 'driver')
+  const MONTH = currentMonthMY()
 
-  let allowances = state.allowances.filter(a => a.date.startsWith(MONTH))
-  if (statusFilter !== 'all') allowances = allowances.filter(a => a.status === statusFilter)
-  if (driverFilter !== 'all') allowances = allowances.filter(a => a.employeeId === driverFilter)
-  allowances = [...allowances].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+  async function load() {
+    const [empRes, allowRes] = await Promise.all([
+      supabase.from('employees').select('*').eq('role', 'driver').order('name'),
+      supabase.from('allowances').select('*').gte('date', `${MONTH}-01`).order('created_at', { ascending: false }),
+    ])
+    setDrivers((empRes.data ?? []).map(mapEmployee))
+    setAllowances((allowRes.data ?? []).map(mapAllowance))
+    setLoading(false)
+  }
 
-  const pendingCount = state.allowances.filter(a => a.date.startsWith(MONTH) && a.status === 'pending').length
+  useEffect(() => { load() }, [MONTH])
+
+  async function review(id: string, status: AllowanceStatus) {
+    if (!admin) return
+    const now = new Date().toISOString()
+    await supabase
+      .from('allowances')
+      .update({ status, reviewed_by: admin.id, reviewed_at: now })
+      .eq('id', id)
+    setAllowances(prev => prev.map(a => a.id === id ? { ...a, status, reviewedBy: admin.id, reviewedAt: now } : a))
+  }
+
+  let filtered = allowances
+  if (statusFilter !== 'all') filtered = filtered.filter(a => a.status === statusFilter)
+  if (driverFilter !== 'all') filtered = filtered.filter(a => a.employeeId === driverFilter)
+
+  const pendingCount = allowances.filter(a => a.status === 'pending').length
+  const driverMap = Object.fromEntries(drivers.map(d => [d.id, d]))
+
+  if (loading) return <div className="p-6 text-slate-400">Loading…</div>
 
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Allowances</h1>
-          <p className="text-sm text-slate-500">April 2026</p>
+          <p className="text-sm text-slate-500">{monthLabel(MONTH)}</p>
         </div>
         {pendingCount > 0 && (
           <span className="bg-yellow-100 text-yellow-700 text-sm font-semibold px-3 py-1 rounded-full">
@@ -55,21 +82,19 @@ export default function AllowancesPage() {
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-        {allowances.length === 0 ? (
+        {filtered.length === 0 ? (
           <p className="text-center text-slate-400 py-12">No allowances found</p>
         ) : (
           <div className="divide-y divide-slate-100">
-            {allowances.map(a => {
-              const driver = state.employees.find(e => e.id === a.employeeId)
+            {filtered.map(a => {
+              const driver = driverMap[a.employeeId]
               return (
                 <div key={a.id} className="px-4 py-3 flex items-center gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium text-slate-800">{driver?.name}</span>
                       <span className="text-xs text-slate-400">{a.date}</span>
-                      <span className="capitalize text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
-                        {a.type}
-                      </span>
+                      <span className="capitalize text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{a.type}</span>
                     </div>
                     <p className="text-xs text-slate-400 mt-0.5 truncate">{a.description}</p>
                   </div>
@@ -77,17 +102,13 @@ export default function AllowancesPage() {
                   {a.status === 'pending' ? (
                     <div className="flex gap-2 shrink-0">
                       <button
-                        onClick={() => dispatch({ type: 'REVIEW_ALLOWANCE', allowanceId: a.id, status: 'approved' })}
+                        onClick={() => review(a.id, 'approved')}
                         className="px-3 py-1.5 bg-green-500 text-white text-xs font-semibold rounded-lg hover:bg-green-600 transition"
-                      >
-                        Approve
-                      </button>
+                      >Approve</button>
                       <button
-                        onClick={() => dispatch({ type: 'REVIEW_ALLOWANCE', allowanceId: a.id, status: 'rejected' })}
+                        onClick={() => review(a.id, 'rejected')}
                         className="px-3 py-1.5 bg-red-100 text-red-600 text-xs font-semibold rounded-lg hover:bg-red-200 transition"
-                      >
-                        Reject
-                      </button>
+                      >Reject</button>
                     </div>
                   ) : (
                     <StatusBadge status={a.status} />

@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect } from 'react'
-import { useStore } from '@/lib/store'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/lib/auth-context'
 
 const NAV = [
   { label: 'Home', href: '/driver', icon: '🏠' },
@@ -13,28 +14,33 @@ const NAV = [
 ]
 
 export default function DriverLayout({ children }: { children: React.ReactNode }) {
-  const { state, dispatch } = useStore()
+  const { employee, loading } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
 
   useEffect(() => {
-    if (!state.currentUserId || state.currentUserId === 'admin') {
-      router.replace('/')
+    if (!loading) {
+      if (!employee) router.replace('/login')
+      else if (employee.role === 'admin') router.replace('/admin/attendance')
     }
-  }, [state.currentUserId, router])
+  }, [employee, loading, router])
 
-  const driver = state.employees.find(e => e.id === state.currentUserId)
-  if (!driver) return null
+  if (loading || !employee || employee.role !== 'driver') return null
+
+  async function handleLogout() {
+    await supabase.auth.signOut()
+    router.replace('/login')
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col max-w-md mx-auto">
       <header className="bg-blue-600 text-white px-4 py-3 flex items-center justify-between">
         <div>
-          <p className="font-semibold">{driver.name}</p>
-          <p className="text-xs text-blue-200">{driver.employeeCode}</p>
+          <p className="font-semibold">{employee.name}</p>
+          <p className="text-xs text-blue-200">{employee.employeeCode}</p>
         </div>
         <button
-          onClick={() => { dispatch({ type: 'LOGOUT' }); router.replace('/') }}
+          onClick={handleLogout}
           className="text-xs text-blue-200 hover:text-white transition"
         >
           Logout
