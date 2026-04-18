@@ -2,9 +2,16 @@ import { createClient } from '@supabase/supabase-js'
 import type { Employee, Attendance, Trip, Allowance } from './types'
 
 // Fallbacks prevent build-time throw; real values must be set in .env.local at runtime.
+// auth.lock is overridden to a no-op to avoid the 5-second StorageMutex hang that
+// occurs in Next.js when the lock from a previous render is not released in time.
 export const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key',
+  {
+    auth: {
+      lock: (_name: string, _acquireTimeout: number, fn: () => Promise<unknown>) => fn(),
+    },
+  },
 )
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -16,7 +16,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     async function loadEmployee(userId: string): Promise<Employee | null> {
-      const { data } = await supabase.from('employees').select('*').eq('user_id', userId).single()
+      const { data } = await supabase.from('employees').select('*').eq('user_id', userId).maybeSingle()
       return data ? mapEmployee(data) : null
     }
 
