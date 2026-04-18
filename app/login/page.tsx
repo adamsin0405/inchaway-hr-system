@@ -16,19 +16,28 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
 
-    const { error: authError } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    })
+    try {
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      })
 
-    if (authError) {
-      setError('Email or password is incorrect.')
+      if (authError) {
+        setError(authError.message)
+        return
+      }
+
+      if (!data.session) {
+        setError('No session returned. Check Supabase URL and anon key in .env.local')
+        return
+      }
+
+      router.push('/admin/attendance')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Unexpected error — check browser console')
+    } finally {
       setLoading(false)
-      return
     }
-
-    // Navigate to admin; layout will redirect drivers to /driver automatically
-    router.push('/admin/attendance')
   }
 
   return (
