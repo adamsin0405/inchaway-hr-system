@@ -31,6 +31,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session) {
+        // Set loading: true immediately so layout guards don't redirect before we finish
+        setState({ employee: null, loading: true })
         const employee = await loadEmployee(session.user.id)
         setState({ employee, loading: false })
       } else {
