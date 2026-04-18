@@ -3,6 +3,7 @@ export type Role = 'driver' | 'admin'
 export interface Employee {
   id: string
   name: string
+  email: string   // login credential
   phone: string
   employeeCode: string
   baseSalary: number

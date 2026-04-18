@@ -12,7 +12,8 @@ export function mapEmployee(r: any): Employee {
   return {
     id: r.id,
     name: r.name,
-    phone: r.phone,
+    email: r.email ?? '',
+    phone: r.phone ?? '',
     employeeCode: r.employee_code,
     baseSalary: Number(r.base_salary),
     tripRate: Number(r.trip_rate),

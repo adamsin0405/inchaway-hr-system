@@ -26,11 +26,10 @@ export async function POST(req: NextRequest) {
   const { data: caller } = await sb.from('employees').select('role').eq('user_id', user.id).single()
   if (caller?.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const { name, phone, employeeCode, baseSalary, tripRate, otHourlyRate, password } = await req.json()
+  const { name, email, phone, employeeCode, baseSalary, tripRate, otHourlyRate, password } = await req.json()
 
-  // Create Supabase auth user — email is phone@hr.local (internal only)
   const { data: authData, error: authErr } = await sb.auth.admin.createUser({
-    email: `${phone}@hr.local`,
+    email,
     password,
     email_confirm: true,
   })
@@ -39,6 +38,7 @@ export async function POST(req: NextRequest) {
   const { error: empErr } = await sb.from('employees').insert({
     user_id: authData.user.id,
     name,
+    email,
     phone,
     employee_code: employeeCode,
     base_salary: baseSalary,

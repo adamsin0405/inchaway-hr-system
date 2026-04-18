@@ -3,12 +3,12 @@
 import type { Employee, Attendance, Trip, Allowance } from './types'
 
 export const MOCK_EMPLOYEES: Employee[] = [
-  { id: '1', name: 'Demo Driver A', phone: '0100000001', employeeCode: 'DRV001', baseSalary: 2000, tripRate: 8, otHourlyRate: 10, standardHours: 8, role: 'driver', isActive: true },
-  { id: '2', name: 'Demo Driver B', phone: '0100000002', employeeCode: 'DRV002', baseSalary: 2200, tripRate: 8, otHourlyRate: 10, standardHours: 8, role: 'driver', isActive: true },
-  { id: '3', name: 'Demo Driver C', phone: '0100000003', employeeCode: 'DRV003', baseSalary: 2000, tripRate: 8, otHourlyRate: 10, standardHours: 8, role: 'driver', isActive: true },
-  { id: '4', name: 'Demo Driver D', phone: '0100000004', employeeCode: 'DRV004', baseSalary: 2100, tripRate: 8, otHourlyRate: 10, standardHours: 8, role: 'driver', isActive: true },
-  { id: '5', name: 'Demo Driver E', phone: '0100000005', employeeCode: 'DRV005', baseSalary: 2000, tripRate: 8, otHourlyRate: 10, standardHours: 8, role: 'driver', isActive: true },
-  { id: 'admin', name: 'Demo Boss', phone: '0100000000', employeeCode: 'ADM001', baseSalary: 0, tripRate: 0, otHourlyRate: 0, standardHours: 8, role: 'admin', isActive: true },
+  { id: '1', name: 'Demo Driver A', email: '', phone: '0100000001', employeeCode: 'DRV001', baseSalary: 2000, tripRate: 8, otHourlyRate: 10, standardHours: 8, role: 'driver', isActive: true },
+  { id: '2', name: 'Demo Driver B', email: '', phone: '0100000002', employeeCode: 'DRV002', baseSalary: 2200, tripRate: 8, otHourlyRate: 10, standardHours: 8, role: 'driver', isActive: true },
+  { id: '3', name: 'Demo Driver C', email: '', phone: '0100000003', employeeCode: 'DRV003', baseSalary: 2000, tripRate: 8, otHourlyRate: 10, standardHours: 8, role: 'driver', isActive: true },
+  { id: '4', name: 'Demo Driver D', email: '', phone: '0100000004', employeeCode: 'DRV004', baseSalary: 2100, tripRate: 8, otHourlyRate: 10, standardHours: 8, role: 'driver', isActive: true },
+  { id: '5', name: 'Demo Driver E', email: '', phone: '0100000005', employeeCode: 'DRV005', baseSalary: 2000, tripRate: 8, otHourlyRate: 10, standardHours: 8, role: 'driver', isActive: true },
+  { id: 'admin', name: 'Demo Boss', email: '', phone: '0100000000', employeeCode: 'ADM001', baseSalary: 0, tripRate: 0, otHourlyRate: 0, standardHours: 8, role: 'admin', isActive: true },
 ]
 
 const D = '2026-04-18'

@@ -6,13 +6,13 @@ import { useAuth } from '@/lib/auth-context'
 import type { Employee } from '@/lib/types'
 
 type FormData = {
-  name: string; phone: string; employeeCode: string
+  name: string; email: string; phone: string; employeeCode: string
   baseSalary: number; tripRate: number; otHourlyRate: number
   password: string
 }
 
 const DEFAULT_FORM: FormData = {
-  name: '', phone: '', employeeCode: '',
+  name: '', email: '', phone: '', employeeCode: '',
   baseSalary: 2000, tripRate: 8, otHourlyRate: 10, password: '',
 }
 
@@ -42,7 +42,7 @@ export default function EmployeesPage() {
   }
 
   function startEdit(emp: Employee) {
-    setForm({ name: emp.name, phone: emp.phone, employeeCode: emp.employeeCode, baseSalary: emp.baseSalary, tripRate: emp.tripRate, otHourlyRate: emp.otHourlyRate, password: '' })
+    setForm({ name: emp.name, email: emp.email, phone: emp.phone, employeeCode: emp.employeeCode, baseSalary: emp.baseSalary, tripRate: emp.tripRate, otHourlyRate: emp.otHourlyRate, password: '' })
     setEditingEmployee(emp)
     setAdding(false)
     setError('')
@@ -62,6 +62,7 @@ export default function EmployeesPage() {
       // Update existing driver (no password change here)
       const { error: err } = await supabase.from('employees').update({
         name: form.name,
+        email: form.email,
         phone: form.phone,
         employee_code: form.employeeCode,
         base_salary: form.baseSalary,
@@ -85,6 +86,7 @@ export default function EmployeesPage() {
         },
         body: JSON.stringify({
           name: form.name,
+          email: form.email,
           phone: form.phone,
           employeeCode: form.employeeCode,
           baseSalary: form.baseSalary,
@@ -138,6 +140,10 @@ export default function EmployeesPage() {
             <Field label="Full Name">
               <input type="text" value={form.name} onChange={e => setField('name', e.target.value)}
                 placeholder="Ahmad Razif" className={inputCls} />
+            </Field>
+            <Field label="Email">
+              <input type="email" value={form.email} onChange={e => setField('email', e.target.value)}
+                placeholder="driver@example.com" className={inputCls} />
             </Field>
             <Field label="Phone">
               <input type="text" value={form.phone} onChange={e => setField('phone', e.target.value)}

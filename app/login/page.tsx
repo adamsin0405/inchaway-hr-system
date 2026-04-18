@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 
 export default function LoginPage() {
   const router = useRouter()
-  const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -17,7 +17,7 @@ export default function LoginPage() {
     setLoading(true)
 
     const { error: authError } = await supabase.auth.signInWithPassword({
-      email: `${phone.trim()}@hr.local`,
+      email: email.trim(),
       password,
     })
 
@@ -48,14 +48,14 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm p-6 space-y-4">
           <div>
             <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1">
-              Phone Number
+              Email
             </label>
             <input
-              type="tel"
+              type="email"
               required
-              value={phone}
-              onChange={e => setPhone(e.target.value)}
-              placeholder="0123456789"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="you@example.com"
               className="w-full border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
           </div>
