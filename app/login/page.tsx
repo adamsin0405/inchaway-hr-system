@@ -16,24 +16,25 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
 
-    const { error: authError } = await supabase.auth.signInWithPassword({
+    const { data, error: authError } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password,
     })
 
-    if (authError) {
-      setError('Phone number or password is incorrect.')
+    if (authError || !data.user) {
+      setError('Email or password is incorrect.')
       setLoading(false)
       return
     }
 
-    const { data: { user } } = await supabase.auth.getUser()
+    // maybeSingle() returns null (not 406) when no row found
     const { data: emp } = await supabase
       .from('employees')
       .select('role')
-      .eq('user_id', user!.id)
-      .single()
+      .eq('user_id', data.user.id)
+      .maybeSingle()
 
+    setLoading(false)
     router.push(emp?.role === 'admin' ? '/admin/attendance' : '/driver')
   }
 
